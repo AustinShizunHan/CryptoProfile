@@ -78,7 +78,7 @@ class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerViewAdapter.CoinV
         NumberFormat formatter = NumberFormat.getCurrencyInstance();
         holder.name.setText(coin.getName());
         holder.value.setText(formatter.format(Double.valueOf(coin.getPriceUsd())));
-        String percentChange1h = coin.getPercentChange1h() + " %";
+        String percentChange1h = coin.getPercentChange1h() + " %" ;
         holder.change1h.setText(percentChange1h);
         holder.itemView.setTag(coin.getSymbol());
 
