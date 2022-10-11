@@ -1,52 +1,86 @@
 package au.edu.unsw.infs3634.cryptoprofile;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
+import au.edu.unsw.infs3634.cryptoprofile.api.Coin;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
+import android.widget.SearchView;
 
-import au.edu.unsw.infs3634.cryptoprofile.api.Coin;
-import au.edu.unsw.infs3634.cryptoprofile.recyclerview_adapter.CoinAdapter;
-import au.edu.unsw.infs3634.cryptoprofile.recyclerview_adapter.RecyclerViewInterface;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
-public class MainActivity extends AppCompatActivity implements RecyclerViewInterface {
-    private static final String TAG = "MainActivity";
-    private Button btnLaunchActivity;
-    private RecyclerView recyclerView;
-    private RecyclerView.Adapter adapter;
-    private RecyclerView.LayoutManager layoutManager;
+public class MainActivity extends AppCompatActivity {
+    private RecyclerViewAdapter mAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        // get the handle to the recycler view
-        recyclerView = findViewById(R.id.rvList);
+        setTitle("INFS3634 CryptoProfile");
 
-        // instantiate a linear recycler view layout manager
-        layoutManager = new LinearLayoutManager(this);
-        recyclerView.setLayoutManager(layoutManager);
+        RecyclerView mRecyclerView = findViewById(R.id.rvList);
+        mRecyclerView.setHasFixedSize(true);
 
-        // instantiate the adapter and pass on the list of coins
-        adapter = new CoinAdapter(Coin.getCoins(), this);
+        RecyclerView.LayoutManager mLayoutManager = new LinearLayoutManager(this);
+        mRecyclerView.setLayoutManager(mLayoutManager);
 
-        // connect the adapter to the recycler view
-        recyclerView.setAdapter(adapter);
+
+        RecyclerViewAdapter.RecyclerViewClickListener listener = (view, coinSymbol) -> launchDetailActivity(coinSymbol);
+
+        mAdapter = new RecyclerViewAdapter(Coin.getCoins(), listener);
+        mAdapter.sort(RecyclerViewAdapter.sortingMethodName);
+        mRecyclerView.setAdapter(mAdapter);
     }
 
-    // Called when the user taps launch button
-    public void launchDetailActivity(String msg) {
-        Intent intent = new Intent(MainActivity.this, DetailActivity.class);
-        intent.putExtra(DetailActivity.INTENT_MESSAGE ,msg);
-        startActivity(intent);
-    }
 
     @Override
-    public void onItemClick(String symbol) {
-        launchDetailActivity(symbol);
+    public boolean onCreateOptionsMenu(@NonNull Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu_main, menu);
+        SearchView searchView = (SearchView) menu.findItem(R.id.search).getActionView();
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+
+            @Override
+            public boolean onQueryTextSubmit(String searchQuery) {
+                mAdapter.getFilter().filter(searchQuery);
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newQuery) {
+                mAdapter.getFilter().filter(newQuery);
+                return false;
+            }
+        });
+        return true;
+    }
+
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.tvSortName:
+                mAdapter.sort(RecyclerViewAdapter.sortingMethodName);
+                return true;
+            case R.id.tvSortValue:
+                mAdapter.sort(RecyclerViewAdapter.sortingMethodValue);
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private void launchDetailActivity(String message){
+        Intent intent = new Intent(MainActivity.this, DetailActivity.class);
+        intent.putExtra(DetailActivity.INTENT_MESSAGE, message);
+        startActivity(intent);
     }
 }
+
+
+
