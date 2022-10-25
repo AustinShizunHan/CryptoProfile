@@ -1,9 +1,5 @@
 package au.edu.unsw.infs3634.cryptoprofile;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import au.edu.unsw.infs3634.cryptoprofile.api.Coin;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.Menu;
@@ -11,8 +7,18 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.SearchView;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.gson.Gson;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import au.edu.unsw.infs3634.cryptoprofile.api.Coin;
+import au.edu.unsw.infs3634.cryptoprofile.api.CoinLoreResponse;
 
 public class MainActivity extends AppCompatActivity {
     private RecyclerViewAdapter mAdapter;
@@ -32,18 +38,21 @@ public class MainActivity extends AppCompatActivity {
 
         RecyclerViewAdapter.RecyclerViewClickListener listener = (view, coinSymbol) -> launchDetailActivity(coinSymbol);
 
-        mAdapter = new RecyclerViewAdapter(Coin.getCoins(), listener);
+        Gson gson = new Gson();
+        CoinLoreResponse response = gson.fromJson(CoinLoreResponse.jsonData, CoinLoreResponse.class);
+        List<Coin> coins = response.getData();
+
+        mAdapter = new RecyclerViewAdapter((ArrayList<Coin>) coins, listener);
         mAdapter.sort(RecyclerViewAdapter.sortingMethodName);
         mRecyclerView.setAdapter(mAdapter);
     }
 
 
     @Override
-    //
     public boolean onCreateOptionsMenu(@NonNull Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menu_main, menu);
-        SearchView searchView = (SearchView) menu.findItem(R.id.search).getActionView();
+        SearchView searchView = (SearchView) menu.findItem(R.id.ivSearch).getActionView();
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
 
             @Override
@@ -63,6 +72,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     @Override
+    // React to user interaction with the menu
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.tvSortName:
