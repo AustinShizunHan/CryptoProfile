@@ -1,8 +1,17 @@
 package au.edu.unsw.infs3634.cryptoprofile;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
+import androidx.room.Room;
+import au.edu.unsw.infs3634.cryptoprofile.api.Coin;
+import au.edu.unsw.infs3634.cryptoprofile.api.CoinLoreResponse;
+import au.edu.unsw.infs3634.cryptoprofile.api.RetrofitService;
+import au.edu.unsw.infs3634.cryptoprofile.DB.CoinDatabase;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -10,122 +19,130 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.View;
-import android.widget.Button;
 import android.widget.SearchView;
 
-import com.google.gson.Gson;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
 
-import au.edu.unsw.infs3634.cryptoprofile.api.Coin;
-import au.edu.unsw.infs3634.cryptoprofile.api.CoinLoreResponse;
-import au.edu.unsw.infs3634.cryptoprofile.api.CoinService;
-import au.edu.unsw.infs3634.cryptoprofile.recyclerview_adapter.CoinAdapter;
-import au.edu.unsw.infs3634.cryptoprofile.recyclerview_adapter.RecyclerViewInterface;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
-
-public class MainActivity extends AppCompatActivity implements RecyclerViewInterface {
-    private static final String TAG = "MainActivity";
-    private Button btnLaunchActivity;
-    private RecyclerView recyclerView;
-    private CoinAdapter adapter;
-    private RecyclerView.LayoutManager layoutManager;
+public class MainActivity extends AppCompatActivity {
+    private RecyclerViewAdapter mAdapter;
+    private CoinDatabase mDb;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        // get the handle to the recycler view
-        recyclerView = findViewById(R.id.rvList);
+        setTitle("INFS3634 CryptoProfile");
 
-        // instantiate a linear recycler view layout manager
-        layoutManager = new LinearLayoutManager(this);
-        recyclerView.setLayoutManager(layoutManager);
+        RecyclerView mRecyclerView = findViewById(R.id.rvList);
+        mRecyclerView.setHasFixedSize(true);
 
-        // Create an adapter instance with an empty ArrayList of Coin objects
-        adapter = new CoinAdapter(new ArrayList<Coin>(), this);
+        RecyclerView.LayoutManager mLayoutManager = new LinearLayoutManager(this);
+        mRecyclerView.setLayoutManager(mLayoutManager);
 
-        // Implement Retrofit to make API call
+
+        RecyclerViewAdapter.RecyclerViewClickListener listener = (view, coinSymbolMessage) -> launchDetailActivity(coinSymbolMessage);
+
+        mAdapter = new RecyclerViewAdapter(new ArrayList<>(), listener);
+        mRecyclerView.setAdapter(mAdapter);
+
+        // Initialise the database
+        mDb = Room.databaseBuilder(getApplicationContext(), CoinDatabase.class, "coin-database")
+                .build();
+        // Create an asynchronous database call using Java Runnable to
+        // get the list of coins from the database
+        // Set the adapter using the result
+        Executors.newSingleThreadExecutor().execute(new Runnable() {
+            @Override
+            public void run() {
+                ArrayList<Coin> coins = (ArrayList<Coin>) mDb.coinDao().getCoins();
+                mAdapter.setData(coins);
+                mAdapter.sort(RecyclerViewAdapter.sortingMethodName);
+            }
+        });
+
+
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("https://api.coinlore.net") // Set the base URL
+                .baseUrl("https://api.coinlore.net")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
-        // Create object for the service interface
-        CoinService service = retrofit.create(CoinService.class);
-        Call<CoinLoreResponse> responseCall = service.getCoins();
+        RetrofitService service = retrofit.create(RetrofitService.class);
+        Call<CoinLoreResponse> responseCall = service.getResponse();
         responseCall.enqueue(new Callback<CoinLoreResponse>() {
             @Override
             public void onResponse(Call<CoinLoreResponse> call, Response<CoinLoreResponse> response) {
-                Log.d(TAG, "API call successful!");
+                Log.d("Main", "API call successful!");
+                assert response.body() != null;
                 List<Coin> coins = response.body().getData();
-                // Supply data to the adapter to be displayed
-                adapter.setData((ArrayList)coins);
-                adapter.sort(CoinAdapter.SORT_METHOD_VALUE);
+                Executors.newSingleThreadExecutor().execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        // Delete all rows currently in your coins entity in the Database
+                        mDb.coinDao().deleteCoins(mDb.coinDao().getCoins().toArray(new Coin[0]));
+                        // Add all rows from the List<Coin> you created from the HTTP request to the Database
+                        mDb.coinDao().insertCoins(coins.toArray(new Coin[0]));
+                    }
+                });
+
+                mAdapter.setData((ArrayList)coins);
+                mAdapter.sort(RecyclerViewAdapter.sortingMethodName);
+
+                mRecyclerView.setAdapter(mAdapter);
             }
 
             @Override
             public void onFailure(Call<CoinLoreResponse> call, Throwable t) {
-                Log.d(TAG, "API call failure.");
+                Log.d("MainActivity", "API call failure.");
             }
         });
-
-        // connect the adapter to the recycler view
-        recyclerView.setAdapter(adapter);
     }
 
-    // Called when the user taps launch button
-    public void launchDetailActivity(String msg) {
-        Intent intent = new Intent(MainActivity.this, DetailActivity.class);
-        intent.putExtra(DetailActivity.INTENT_MESSAGE ,msg);
-        startActivity(intent);
-    }
 
     @Override
-    public void onItemClick(String symbol) {
-        launchDetailActivity(symbol);
-    }
-
-    @Override
-    // Instantiate the menu
-    public boolean onCreateOptionsMenu(Menu menu) {
+    public boolean onCreateOptionsMenu(@NonNull Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.menu_main, menu);
         SearchView searchView = (SearchView) menu.findItem(R.id.app_bar_search).getActionView();
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+
             @Override
-            public boolean onQueryTextSubmit(String query) {
-                adapter.getFilter().filter(query);
+            public boolean onQueryTextSubmit(String searchQuery) {
+                mAdapter.getFilter().filter(searchQuery);
                 return false;
             }
 
             @Override
-            public boolean onQueryTextChange(String newText) {
-                adapter.getFilter().filter(newText);
+            public boolean onQueryTextChange(String newQuery) {
+                mAdapter.getFilter().filter(newQuery);
                 return false;
             }
         });
         return true;
     }
 
+
     @Override
-    // React to user interaction with the menu
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.sortName:
-                adapter.sort(CoinAdapter.SORT_METHOD_NAME);
+                mAdapter.sort(RecyclerViewAdapter.sortingMethodName);
                 return true;
             case R.id.sortValue:
-                adapter.sort(CoinAdapter.SORT_METHOD_VALUE);
+                mAdapter.sort(RecyclerViewAdapter.sortingMethodValue);
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
+    }
+
+    private void launchDetailActivity(String message){
+        Intent intent = new Intent(MainActivity.this, DetailActivity.class);
+        intent.putExtra(DetailActivity.INTENT_MESSAGE, message);
+        startActivity(intent);
     }
 }

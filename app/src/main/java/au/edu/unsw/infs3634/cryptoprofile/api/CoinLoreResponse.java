@@ -16,17 +16,4 @@ public class CoinLoreResponse {
     public List<Coin> getData() {
         return data;
     }
-
-    public void setData(List<Coin> data) {
-        this.data = data;
-    }
-
-    public Info getInfo() {
-        return info;
-    }
-
-    public void setInfo(Info info) {
-        this.info = info;
-    }
-
 }
