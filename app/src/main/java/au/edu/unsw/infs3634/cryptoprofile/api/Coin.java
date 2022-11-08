@@ -1,18 +1,13 @@
 package au.edu.unsw.infs3634.cryptoprofile.api;
 
+import com.google.gson.Gson;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
-import androidx.annotation.NonNull;
-import androidx.room.Entity;
-import androidx.room.PrimaryKey;
+import java.util.List;
 
-
-@Entity
 public class Coin {
 
-    @PrimaryKey
-    @NonNull
     @SerializedName("id")
     @Expose
     private String id;
@@ -190,4 +185,19 @@ public class Coin {
         this.msupply = msupply;
     }
 
+    public static Coin findCoin(String symbol) {
+
+        Gson gson = new Gson();
+        CoinLoreResponse response = gson.fromJson(CoinLoreResponse.jsonData, CoinLoreResponse.class);
+        List<Coin> coins = response.getData();
+
+        for(final Coin coin : coins) {
+            if(coin.getSymbol().equals(symbol)) {
+                return coin;
+            }
+        }
+        return null;
+    }
+
 }
+
